@@ -1,0 +1,5 @@
+{
+  "name": "AI Product Modeler",
+  "description": "An application to generate professional model photos for your products. Simply upload a product image, specify the desired model attributes, and let AI create a stunning visual.",
+  "requestFramePermissions": []
+}
