@@ -1,11 +1,12 @@
-
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Header from './components/Header';
 import ImageUploader from './components/ImageUploader';
 import ModelConfigurator from './components/ModelConfigurator';
 import GeneratedImage from './components/GeneratedImage';
+import Gallery from './components/Gallery';
 import { generateModelImage } from './services/geminiService';
-import type { ModelConfig, ProductImage, GeneratedImageData } from './types';
+import { uploadGeneratedImage, getGalleryImages } from './services/supabaseService';
+import type { ModelConfig, ProductImage, GeneratedImageData, GalleryImage } from './types';
 import { DEFAULT_MODEL_CONFIG } from './constants';
 
 const App: React.FC = () => {
@@ -14,6 +15,22 @@ const App: React.FC = () => {
   const [generatedImage, setGeneratedImage] = useState<GeneratedImageData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  // New state for gallery
+  const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
+  const [isGalleryLoading, setIsGalleryLoading] = useState<boolean>(true);
+
+  const fetchGallery = useCallback(async () => {
+    setIsGalleryLoading(true);
+    const images = await getGalleryImages();
+    setGalleryImages(images);
+    setIsGalleryLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchGallery();
+  }, [fetchGallery]);
+
 
   const handleImageUpload = (image: ProductImage) => {
     setProductImage(image);
@@ -34,13 +51,21 @@ const App: React.FC = () => {
     try {
       const result = await generateModelImage(productImage, modelConfig);
       setGeneratedImage(result);
+
+      // After successful generation, upload to Supabase
+      if (result.imageUrl) {
+        await uploadGeneratedImage(result.imageUrl, modelConfig);
+        // Refresh the gallery to show the new image
+        await fetchGallery();
+      }
+
     } catch (err) {
       console.error('Generation failed:', err);
       setError('Failed to generate image. The AI may have refused the request due to safety policies. Please try a different product or adjust settings.');
     } finally {
       setIsLoading(false);
     }
-  }, [productImage, modelConfig]);
+  }, [productImage, modelConfig, fetchGallery]);
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 font-sans flex flex-col">
@@ -85,6 +110,9 @@ const App: React.FC = () => {
             />
           </div>
         </div>
+        
+        {/* Gallery Section */}
+        <Gallery images={galleryImages} isLoading={isGalleryLoading} />
       </main>
       <footer className="text-center p-4 text-gray-500 text-sm">
         <p>Powered by Google Gemini. © 2024 AI Product Modeler</p>
